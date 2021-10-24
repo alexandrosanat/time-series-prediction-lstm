@@ -60,13 +60,14 @@ class LSTMPredictor(nn.Module):
             output = self.linear(hidden_state2)
             outputs.append(output)
 
+        # We loop through the specifies number of steps in the future and make prediction
         for i in range(future):
             hidden_state1, cell_state1 = self.lstm1(output, (hidden_state1, cell_state1))
             hidden_state2, cell_state2 = self.lstm2(hidden_state1, (hidden_state2, cell_state2))
             output = self.linear(hidden_state2)
             outputs.append(output)
 
-        # Concatenate outputs
+        # Concatenate outputs into a tensor
         outputs = torch.cat(outputs, dim=1)
         return outputs
 
@@ -77,6 +78,7 @@ if __name__ == '__main__':
 
     # y = (100, 1000)
     # Use all but the first three samples for training
+    # Inputs will be all but the last number and outputs, will start from the second to the last number
     train_input = torch.from_numpy(y[3:, :-1])  # (97, 999)
     train_target = torch.from_numpy(y[3:, 1:])  # (97, 999)
     test_input = torch.from_numpy(y[:3, :-1])  # (3, 999)
@@ -86,11 +88,10 @@ if __name__ == '__main__':
     criterion = nn.MSELoss()
     optimizer = optim.LBFGS(model.parameters(), lr=0.8)
 
-    n_steps = 10
+    n_epochs = 10
 
-    for i in range(n_steps):
+    for i in range(n_epochs):
         print("Step: ", i)
-
 
         def closure():
             optimizer.zero_grad()
@@ -105,6 +106,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             future = 1000
             pred = model(test_input, future=future)
+            # This pass will also return future values so to calculate the loss we need to exclude them
             loss = criterion(pred[:, :-future], test_target)
             print("Test loss: ", loss.item())
             y = pred.detach().numpy()
@@ -119,7 +121,7 @@ if __name__ == '__main__':
         n = train_input.shape[1]  # 999
 
         def draw(y_i, colour):
-            plt.plot(np.arange(n), y_i[:n], colour, linewidth=2.0)  # Plot actual values
+            plt.plot(np.arange(n), y_i[:n], colour, linewidth=2.0)  # Plot actual values in solid line
             plt.plot(np.arange(n, n+future), y_i[n:], colour + ":", linewidth=2.0)  # Plot predictions
 
         draw(y[0], 'r')
@@ -128,3 +130,4 @@ if __name__ == '__main__':
 
         plt.savefig(f"plots/predict {i}.jpg")
         plt.close()
+
